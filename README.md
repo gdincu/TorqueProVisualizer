@@ -7,10 +7,11 @@ PHP-Based Application used for generating [mp4](https://en.wikipedia.org/wiki/MP
 ## Usage
 
 Use the GenerateVideo.bat to generate an mp4 animation based on the available demo_data.json file.<br><br>
-Ensure that there is a cache folder available AND that your data matches the format of the demo json file before starting.
+![GenerateVideoScript](https://github.com/user-attachments/assets/0f7f094d-7a42-4545-b65b-077baf4f694b)
 
 Requirements:
 - [PHP](https://www.php.net/)
 - [ffmpeg](https://www.ffmpeg.org/)
 <br>
 Based on https://github.com/nickn17/evDashVisualizer
+
