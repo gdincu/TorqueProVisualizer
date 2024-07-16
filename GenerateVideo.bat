@@ -32,7 +32,7 @@ set /p speedup="Enter the speedup factor (e.g. 7 for 7x speed): "
 set /p zoom="Enter the zoom level (e.g. 11 - the higher the value the greater the zoom in effect): "
 
 :: Prompt the user for the output resolution
-set /p resolution="Enter your choice (2K or 4K) (e.g. 11 - the higher the value the greater the zoom in effect): "
+set /p resolution="Enter your choice (2K or 4K): "
 
 echo.
 echo Creating an mjpeg animation with the following settings: [92mspeedup=%speedup% zoom=%zoom%[0m...
