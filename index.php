@@ -1,8 +1,4 @@
 <?php
-
-// Install
-// composer require goat1000/svggraph
-//  ffmpeg -i test.mjpeg -pix_fmt yuv420p -b:v 4000k -c:v libx264 test.mp4
 error_reporting(E_ALL & ~E_STRICT & ~E_DEPRECATED);
 ini_set('error_reporting', E_ALL & ~E_STRICT & ~E_DEPRECATED);
 ini_set('display_errors', 'On');
@@ -173,7 +169,6 @@ class EvDashboardOverview {
         $this->params['lonCenter'] = ($this->params['lonMax'] - $this->params['lonMin']) / 2 + $this->params['lonMin'];
         $this->params['zoom'] = getNum("zoom", 12);
 
-        //print_r($this->params);        die();
         if ($this->params['keyframes'] == 0) {
             die("no keyframes");
         }
@@ -263,7 +258,6 @@ class EvDashboardOverview {
                 imagefilter($this->image, IMG_FILTER_NEGATE);
                 $opacity = imagecolorallocatealpha($this->image, 0, 0, 0, 100);
             } else {
-                //$opacity = imagecolorallocatealpha($this->image, 255, 255, 255, 50);
                 $opacity = imagecolorallocatealpha($this->image, 0, 0, 0, 127);
             }
             imagefilledrectangle($this->image, 0, 0, $this->width, $this->height, $opacity);
@@ -272,9 +266,6 @@ class EvDashboardOverview {
             $cnt = 0;
             $yStep = $this->height / ($this->params['latMax'] - $this->params['latMin']);
             $xStep = $this->width / ($this->params['lonMax'] - $this->params['lonMin']);
-            //print_r($this->params);
-            //echo "$xStep / $yStep";
-            //die();
 
             $prevRow = false;
             $row = false;
@@ -326,17 +317,29 @@ class EvDashboardOverview {
                 imagettftext($this->image, 14, 0, ($cnt * $eleStep) + 10, $this->height - 64, $this->black, $this->font, $row['alt'] . "m");
             $this->liveData->processRow(false);
 
+			// Load the small PNG image
+			$smallImage = imagecreatefrompng('vehicle.png');
+			
+			// Get the dimensions of the small PNG image
+			$smallImageWidth = imagesx($smallImage);
+			$smallImageHeight = imagesy($smallImage);
+
             if ($row !== false) {
                 if ($row['odoKm'] != -1 && $row['instCon'] != -1) {
                     $x = floor(($this->width / 2) - $this->tileSize * ( $this->centerX - lonToTile($row['lon'], $this->params['zoom'])));
                     $y = floor(($this->height / 2) - $this->tileSize * ($this->centerY - latToTile($row['lat'], $this->params['zoom'])));
                     $trackColor = ($this->darkMode ? imagecolorallocatealpha($this->image, 255, 196, 40, 0) : imagecolorallocatealpha($this->image, 0, 128, 40, 0));
-                    imagefilledellipse($this->image, $x, $y, 12, 12, $trackColor);
+                    
+					//Green dot at the start of the track
+					// imagefilledellipse($this->image, $x, $y, 12, 12, $trackColor);
+					
+					//Vehicle png image
+					imagecopy($this->image, $smallImage, ($x - ($smallImageWidth / 2)), ($y - ($smallImageHeight / 2)), 0, 0, $smallImageWidth, $smallImageHeight);
 					
 					//Get Live Data
 					$data = $this->liveData->getData();
 					
-                    imagettftext($this->image, 24, 0, $x + 16, $y + 16, $this->red, $this->font,
+                    imagettftext($this->image, 24, 0, ($x-($smallImageWidth/3)), ($y+($smallImageHeight*1.5)), $this->red, $this->font,
                             $this->hideInfo ?
                                     printf("") :
 									sprintf("%0.0fkm",$data[LiveData::MODE_DRIVE]['odoKm'])
@@ -370,35 +373,23 @@ class EvDashboardOverview {
 					
                     imagefilledrectangle($this->image, 0, 0, $this->width, 55, $opacity);
 					
-					$mask = "%3s%4s   %9s%2s%1s%1s%1s   %6s%4s%1s   %6s%3s%2s   %9s%-6s   %10s%-6s   %16s" ;
+					$mask = "%6s   %-10s   %-10s   %-10s   %-14s   %-14s   %-16s";
 					
 					$px = 25;
 					$this->drawMapOsd($px, 48, $textColor,
 					sprintf($mask,
-					str_pad(round($row['speedKmh']),3,"0",STR_PAD_LEFT),
-					"km/h",
-					"Instant: ",
-					str_pad((int)$row['instCon'],2,"0",STR_PAD_LEFT),
-					".",
-					str_pad((int)(((float)$row['instCon']-(int)$row['instCon'])*10),1,"0",STR_PAD_LEFT),
-					"%",
-					"Fuel: ",
-					str_pad(round($row['FuelPct']),3,"0",STR_PAD_LEFT),
-					"%",
-					"Temp: ",
-					str_pad((int)$row['outC'],3,"0",STR_PAD_LEFT),
-					"°C",
-					"DrvTime: ",
-					formatHourMin($data[LiveData::MODE_DRIVE]['timeSec']),
-					"IdleTime: ",
-					formatHourMin($data[LiveData::MODE_IDLE]['timeSec']),
-					gmdate("Y-m-d H:i", $row["currTime"])
-					));
+						str_pad(round($row['speedKmh']), 3, "0", STR_PAD_LEFT) . "km/h",
+						"Instant: " . str_pad((int)$row['instCon'], 2, "0", STR_PAD_LEFT) . "." . str_pad((int)(((float)$row['instCon'] - (int)$row['instCon']) * 10), 1, "0", STR_PAD_LEFT) . "%",
+						"Fuel: " . str_pad(round($row['FuelPct']), 3, "0", STR_PAD_LEFT) . "%",
+						"Temp: " . str_pad((int)$row['outC'], 3, "0", STR_PAD_LEFT) . "°C",
+						"DrvTime: " . formatHourMin($data[LiveData::MODE_DRIVE]['timeSec']),
+						"IdleTime: " . formatHourMin($data[LiveData::MODE_IDLE]['timeSec']),
+						gmdate("Y-m-d H:i", $row["currTime"])
+						));
                 }
             }
 
             $textColor = ($this->darkMode ? $this->white : $this->black);
-            // imagettftext($this->image, 12, 0, 8, $this->height - 8, $textColor, $this->font, 'map © OpenStreetMap, data © OpenStreetMap contributors, © SRTM, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France.');
             if ($this->onlyStaticImage) {
                 header('Content-type: image/jpeg');
             } else {
@@ -425,7 +416,6 @@ class EvDashboardOverview {
     private function drawMapOsd($x, $y, $textColor, $left, $right = " ") {
         $box = imagettfbbox(32, 0, $this->font, $left);
         $textWidth = abs($box[4] - $box[0]);
-        // imagettftext($this->image, 32, 0, $x - $textWidth, $y, $textColor, $this->font, $left);
 		imagettftext($this->image, 32, 0, $x, $y, $textColor, $this->font, $left);
         imagettftext($this->image, 32, 0, $x + 16, $y, $textColor, $this->font, $right);
     }

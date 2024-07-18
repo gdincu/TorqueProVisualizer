@@ -1,7 +1,7 @@
 # TorqueProVisualizer
 PHP-Based Application used for generating [mp4](https://en.wikipedia.org/wiki/MP4_file_format) animations based on Torque Pro logs.
 
-![vlcsnap-2023-11-18-22h08m27s316](https://github.com/gdincu/evDashVisualizer/assets/20664969/75ccfa97-4a9a-4996-a801-619a49c4160c)
+![vlcsnap-2024-07-18-13h30m55s294](https://github.com/user-attachments/assets/6dde6c8d-ebb2-42fc-8539-d051b6f877e4)
 
 
 ## Usage
