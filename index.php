@@ -79,6 +79,7 @@ class EvDashboardOverview {
             "alt" => array("title" => "Altitude", "format" => "%03.0f", "unit" => "m"),
             "outC" => array("title" => "Outdoor temp.", "format" => "%03.1f", "unit" => "°C"),
 			"fuelPct" => array("title" => "FuelPct", "format" => "%02.1f", "unit" => "%"),
+			"carId" => array("title" => "CarId", "format" => "%d", "unit" => "")
         );
     }
 
@@ -301,7 +302,16 @@ class EvDashboardOverview {
                     $i = abs($cnt - $frame) / 5;
                     if ($i > 50)
                         $i = 50;
-                    $trackColor = ($this->darkMode ? imagecolorallocatealpha($this->image, 255, 196, 40, $i) : imagecolorallocatealpha($this->image, 0, 128, 40, $i));
+                    
+					// Set track color
+					if($row['CarId'] == 1) {
+						$trackColor = imagecolorallocatealpha($this->image, 255, 196, 40, 0);
+					} else if($row['CarId'] == 2) {
+						$trackColor = imagecolorallocatealpha($this->image, 0, 128, 40, 0);
+					} else if($row['CarId'] == 3) {
+						$trackColor = imagecolorallocatealpha($this->image, 128, 40, 0, 0);
+					}
+					
                     imageline($this->image, $x0, $y0, $x, $y, $trackColor);
                 }
 
@@ -317,21 +327,27 @@ class EvDashboardOverview {
                 imagettftext($this->image, 14, 0, ($cnt * $eleStep) + 10, $this->height - 64, $this->black, $this->font, $row['alt'] . "m");
             $this->liveData->processRow(false);
 
-			// Load the small PNG image
-			$smallImage = imagecreatefrompng('vehicle.png');
-			
-			// Get the dimensions of the small PNG image
-			$smallImageWidth = imagesx($smallImage);
-			$smallImageHeight = imagesy($smallImage);
-
             if ($row !== false) {
                 if ($row['odoKm'] != -1 && $row['instCon'] != -1) {
                     $x = floor(($this->width / 2) - $this->tileSize * ( $this->centerX - lonToTile($row['lon'], $this->params['zoom'])));
                     $y = floor(($this->height / 2) - $this->tileSize * ($this->centerY - latToTile($row['lat'], $this->params['zoom'])));
-                    $trackColor = ($this->darkMode ? imagecolorallocatealpha($this->image, 255, 196, 40, 0) : imagecolorallocatealpha($this->image, 0, 128, 40, 0));
                     
+					// Load the small PNG image
+					if($row['CarId'] == 1) {
+						$smallImage = imagecreatefrompng('elantra.png');
+					} else if($row['CarId'] == 2) {
+						$smallImage = imagecreatefrompng('elantra.png');
+						imageflip($smallImage, IMG_FLIP_HORIZONTAL);
+					} else if($row['CarId'] == 3) {
+						$smallImage = imagecreatefrompng('lodgy.png');
+					}
+					
 					//Green dot at the start of the track
 					// imagefilledellipse($this->image, $x, $y, 12, 12, $trackColor);
+			
+					// Get the dimensions of the small PNG image
+					$smallImageWidth = imagesx($smallImage);
+					$smallImageHeight = imagesy($smallImage);
 					
 					//Vehicle png image
 					imagecopy($this->image, $smallImage, ($x - ($smallImageWidth / 2)), ($y - ($smallImageHeight / 2)), 0, 0, $smallImageWidth, $smallImageHeight);
