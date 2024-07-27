@@ -79,7 +79,7 @@ class EvDashboardOverview {
             "alt" => array("title" => "Altitude", "format" => "%03.0f", "unit" => "m"),
             "outC" => array("title" => "Outdoor temp.", "format" => "%03.1f", "unit" => "°C"),
 			"fuelPct" => array("title" => "FuelPct", "format" => "%02.1f", "unit" => "%"),
-			"carId" => array("title" => "CarId", "format" => "%d", "unit" => "")
+			"carId" => array("title" => "CarId", "format" => "%s", "unit" => "")
         );
     }
 
@@ -304,12 +304,10 @@ class EvDashboardOverview {
                         $i = 50;
                     
 					// Set track color
-					if($row['CarId'] == 1) {
-						$trackColor = imagecolorallocatealpha($this->image, 255, 196, 40, 0);
-					} else if($row['CarId'] == 2) {
+					if (strpos($row['CarId'], '_r') !== false) {
 						$trackColor = imagecolorallocatealpha($this->image, 0, 128, 40, 0);
-					} else if($row['CarId'] == 3) {
-						$trackColor = imagecolorallocatealpha($this->image, 128, 40, 0, 0);
+					} else {
+						$trackColor = imagecolorallocatealpha($this->image, 255, 196, 40, 0);
 					}
 					
                     imageline($this->image, $x0, $y0, $x, $y, $trackColor);
@@ -333,14 +331,7 @@ class EvDashboardOverview {
                     $y = floor(($this->height / 2) - $this->tileSize * ($this->centerY - latToTile($row['lat'], $this->params['zoom'])));
                     
 					// Load the small PNG image
-					if($row['CarId'] == 1) {
-						$smallImage = imagecreatefrompng('elantra.png');
-					} else if($row['CarId'] == 2) {
-						$smallImage = imagecreatefrompng('elantra.png');
-						imageflip($smallImage, IMG_FLIP_HORIZONTAL);
-					} else if($row['CarId'] == 3) {
-						$smallImage = imagecreatefrompng('lodgy.png');
-					}
+					$smallImage = imagecreatefrompng('resources/' . $row['CarId'] . '.png');
 					
 					//Green dot at the start of the track
 					// imagefilledellipse($this->image, $x, $y, 12, 12, $trackColor);
