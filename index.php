@@ -290,7 +290,7 @@ class EvDashboardOverview {
                     // elevation graph
                     if (!$this->hideInfo) {
                         imagesetthickness($this->image, ($this->darkMode ? 1 : 1));
-                        imageline($this->image, $cnt * $eleStep, $this->height - ($prevRow['alt'] / 5), ( $cnt * $eleStep) + 1, $this->height - ($row['alt'] / 5),
+                        imageline($this->image, $cnt * $eleStep, $this->height - ($prevRow['alt'] / 8), ( $cnt * $eleStep) + 1, $this->height - ($row['alt'] / 8),
                                 ($this->darkMode ? ($row['speedKmh'] > 5 ? $this->white : $this->red) : $this->red));
                     }
                     //
@@ -305,9 +305,9 @@ class EvDashboardOverview {
                     
 					// Set track color
 					if (strpos($row['CarId'], '_r') !== false) {
-						$trackColor = imagecolorallocatealpha($this->image, 0, 128, 40, 0);
+						$trackColor = imagecolorallocatealpha($this->image, 255, 120, 120, 0);
 					} else {
-						$trackColor = imagecolorallocatealpha($this->image, 255, 196, 40, 0);
+						$trackColor = imagecolorallocatealpha($this->image, 0, 204, 102, 0);
 					}
 					
                     imageline($this->image, $x0, $y0, $x, $y, $trackColor);
