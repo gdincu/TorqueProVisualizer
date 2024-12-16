@@ -66,7 +66,7 @@ class EvDashboardOverview {
 
         // Init structures
         $this->tileUrl = 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        $this->tileUrl = 'https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png';
+        //$this->tileUrl = 'https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png';
         $this->darkMode = getNum("dark", 0);
         $this->hideInfo = (getNum("info", 1) == 0);
         $this->speedup = getNum("speedup", 1);
@@ -236,9 +236,11 @@ class EvDashboardOverview {
             for ($x = $startX; $x <= $endX; $x++) {
                 for ($y = $startY; $y <= $endY; $y++) {
                     $url = str_replace(array('{z}', '{x}', '{y}'), array($this->params['zoom'], $x, $y), $this->tileUrl);
+					// Used to check the url used to retrieve the map tile
+					// var_dump($url);
                     $tileData = fetchTile($url);
                     if ($tileData) {
-                        $tileImage = imagecreatefromstring($tileData);
+                        $tileImage = @imagecreatefromstring($tileData);
                     } else {
                         $tileImage = imagecreate($this->tileSize, $this->tileSize);
                         $color = imagecolorallocate($tileImage, 255, 255, 255);
@@ -246,8 +248,9 @@ class EvDashboardOverview {
                     }
                     $destX = ($x - $startX) * $this->tileSize + $this->offsetX;
                     $destY = ($y - $startY) * $this->tileSize + $this->offsetY;
-                    imagecopy($this->imageMapBk, $tileImage, $destX, $destY, 0, 0, $this->tileSize, $this->tileSize);
+                    @imagecopy($this->imageMapBk, $tileImage, $destX, $destY, 0, 0, $this->tileSize, $this->tileSize);
                 }
+				// sleep(5);
             }
             // end of render map background
 
