@@ -88,8 +88,8 @@ class EvDashboardOverview {
      */
     private function prepareColors() {
 
-        $this->font = 'fonts/RobotoCondensed-Light.ttf';
-        $this->font2 = 'fonts/RobotoCondensed-Bold.ttf';
+        $this->font = __DIR__ . '/fonts/RobotoCondensed-Light.ttf';
+        $this->font2 = __DIR__ . '/fonts/RobotoCondensed-Light.ttf';
         $this->white = imagecolorallocate($this->image, 255, 255, 255);
         $this->black = imagecolorallocate($this->image, 0, 0, 0);
         $this->red = imagecolorallocate($this->image, 255, 0, 0);
