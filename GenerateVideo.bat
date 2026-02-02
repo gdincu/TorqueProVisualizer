@@ -31,22 +31,15 @@ set /p speedup="Enter the speedup factor (e.g. 7 for 7x speed): "
 :: Prompt the user for the zoom level
 set /p zoom="Enter the zoom level (e.g. 11 - the higher the value the greater the zoom in effect): "
 
-:: Prompt the user for the output resolution
-set /p resolution="Enter your choice (2K or 4K): "
-
 echo.
 echo Creating an mjpeg animation with the following settings: [92mspeedup=%speedup% zoom=%zoom%[0m...
 PHP index.php filename=demo_data.json speedup=%speedup% zoom=%zoom% info=1
 echo [92mMJPeg animation created[0m
 echo.
 
-echo Converting the mjpeg animation to an mp4 file with a [92m%resolution% resolution[0m...
+echo Converting the mjpeg animation to an mp4 file with a 4K resolution[0m...
 
-if /I "%resolution%"=="2k" (
-    FFMPEG -hide_banner -loglevel error -i demo_data_map.mjpeg -pix_fmt yuv420p -b:v 4000k -c:v libx264 final_result_2K.mp4
-) else (
-    ffmpeg -hide_banner -loglevel error -i demo_data_map.mjpeg -pix_fmt yuv420p -b:v 4000k -c:v libx264 -vf scale=3840:2160 final_result_4K.mp4
-)
+ffmpeg -hide_banner -loglevel error -i demo_data_map.mjpeg -pix_fmt yuv420p -b:v 8000k -c:v libx264 final_result_4K.mp4
 
 echo [92mMP4 file created[0m
 echo.

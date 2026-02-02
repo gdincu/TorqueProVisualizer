@@ -14,16 +14,12 @@ if (!extension_loaded("gd")) {
 include("global.php");
 include("LiveData.php");
 
-/**
- *
- */
 class EvDashboardOverview {
 
     const TIME_SCREEN_FRAME = 4200; // seconds
     const TIME_SCREEN_SCROLL = 3600; // seconds
 
     private $jsonData;
-    //
     private $params;
     private $onlyStaticImage;
     private $image;
@@ -38,15 +34,13 @@ class EvDashboardOverview {
     private $darkMode;
     private $tileUrl;
     private $hideInfo;
-    // Map
     protected $tileSize = 256;
+    
+    // PERFORMANCE ADDITION: Tile cache and Icon cache
+    private $tileCache = [];
+    private $iconCache = [];
 
-    /**
-     * Init
-     */
     function __construct() {
-
-        // convert CLI params to GET
         if (PHP_SAPI === 'cli') {
             if (isset($_SERVER['argc']) > 0) {
                 foreach ($_SERVER['argv'] as $key => $value) {
@@ -64,9 +58,7 @@ class EvDashboardOverview {
             }
         }
 
-        // Init structures
         $this->tileUrl = 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        //$this->tileUrl = 'https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png';
         $this->darkMode = getNum("dark", 0);
         $this->hideInfo = (getNum("info", 1) == 0);
         $this->speedup = getNum("speedup", 1);
@@ -78,16 +70,12 @@ class EvDashboardOverview {
             "odoKm" => array("title" => "Odometer", "format" => "%03.0f", "unit" => "km"),
             "alt" => array("title" => "Altitude", "format" => "%03.0f", "unit" => "m"),
             "outC" => array("title" => "Outdoor temp.", "format" => "%03.1f", "unit" => "°C"),
-			"fuelPct" => array("title" => "FuelPct", "format" => "%02.1f", "unit" => "%"),
-			"carId" => array("title" => "CarId", "format" => "%s", "unit" => "")
+            "fuelPct" => array("title" => "FuelPct", "format" => "%02.1f", "unit" => "%"),
+            "carId" => array("title" => "CarId", "format" => "%s", "unit" => "")
         );
     }
 
-    /**
-     * Prepare colors
-     */
     private function prepareColors() {
-
         $this->font = __DIR__ . '/fonts/RobotoCondensed-Light.ttf';
         $this->font2 = __DIR__ . '/fonts/RobotoCondensed-Light.ttf';
         $this->white = imagecolorallocate($this->image, 255, 255, 255);
@@ -101,163 +89,105 @@ class EvDashboardOverview {
         $this->fields['speedKmh']['color2'] = imagecolorallocatealpha($this->image, 0, 255, 255, 80);
     }
 
-    /**
-     * Process
-     */
     function preprocessData($jsonFileName, $onlyStaticImage = true) {
-
         $this->onlyStaticImage = $onlyStaticImage;
         $this->fileName = $jsonFileName;
-        if (substr(strtolower($this->fileName), -5) != ".json")
-            die("JSON file required");
+        if (substr(strtolower($this->fileName), -5) != ".json") die("JSON file required");
 
         $data = file_get_contents($this->fileName);
         $data = rtrim(rtrim($data, "\n"), ",");
         $data = "[" . $data . "]";
         $this->jsonData = json_decode($data, true);
-        // Prepare data
-        $this->params = array(
-            "keyframes" => 0,
-            "minOdoKm" => -1,
-            "maxOdoKm" => -1,
-            "minCurrTime" => -1,
-            "maxCurrTime" => -1,
-            "chargingStartX" => -1,
-            "latMin" => -1,
-            "latMax" => -1,
-            "lonMin" => -1,
-            "lonMax" => -1,
-            "latStartPoint" => -1,
-            "lonStartPoint" => -1,
-        );
-        foreach ($this->jsonData as $key => &$row) {
-            if (isset($row['speedKmhGPS']) && $row['speedKmhGPS'] != -1) {
-                $row['speedKmh'] = $row['speedKmhGPS'];
-            }
 
-            if (($row['odoKm'] != 1.677721e7) && ($this->params['maxOdoKm'] == -1 || $row['odoKm'] > $this->params['maxOdoKm']))
-                $this->params['maxOdoKm'] = $row['odoKm'];
-            if ($row['odoKm'] == 1.677721e7)
-                $row['odoKm'] = $this->params['maxOdoKm'];
-            
+        $this->params = array(
+            "keyframes" => 0, "minOdoKm" => -1, "maxOdoKm" => -1, "minCurrTime" => -1,
+            "maxCurrTime" => -1, "chargingStartX" => -1, "latMin" => -1, "latMax" => -1,
+            "lonMin" => -1, "lonMax" => -1, "latStartPoint" => -1, "lonStartPoint" => -1,
+        );
+
+        foreach ($this->jsonData as $key => &$row) {
+            if (isset($row['speedKmhGPS']) && $row['speedKmhGPS'] != -1) $row['speedKmh'] = $row['speedKmhGPS'];
+            if (($row['odoKm'] != 1.677721e7) && ($this->params['maxOdoKm'] == -1 || $row['odoKm'] > $this->params['maxOdoKm'])) $this->params['maxOdoKm'] = $row['odoKm'];
+            if ($row['odoKm'] == 1.677721e7) $row['odoKm'] = $this->params['maxOdoKm'];
 
             $this->params['keyframes'] ++;
-            if ($this->params['minOdoKm'] == -1 || $row['odoKm'] < $this->params['minOdoKm'])
-                $this->params['minOdoKm'] = $row['odoKm'];
-            if ($this->params['minCurrTime'] == -1 || $row['currTime'] < $this->params['minCurrTime'])
-                $this->params['minCurrTime'] = $row['currTime'];
-            if ($this->params['maxCurrTime'] == -1 || $row['currTime'] > $this->params['maxCurrTime'])
-                $this->params['maxCurrTime'] = $row['currTime'];
-            if ($this->params['latMin'] == -1 || ($row['lat'] != -1 && $row['lat'] < $this->params['latMin']))
-                $this->params['latMin'] = $row['lat'];
-            if ($this->params['latMax'] == -1 || ($row['lat'] != -1 && $row['lat'] > $this->params['latMax']))
-                $this->params['latMax'] = $row['lat'];
-            if ($this->params['lonMin'] == -1 || ($row['lon'] != -1 && $row['lon'] < $this->params['lonMin']))
-                $this->params['lonMin'] = $row['lon'];
-            if ($this->params['lonMax'] == -1 || ($row['lon'] != -1 && $row['lon'] > $this->params['lonMax']))
-                $this->params['lonMax'] = $row['lon'];
-            if ($this->params['latStartPoint'] == -1 && $row['lat'] != -1)
-                $this->params['latStartPoint'] = $row['lat'];
-            if ($this->params['lonStartPoint'] == -1 && $row['lon'] != -1)
-                $this->params['lonStartPoint'] = $row['lon'];
+            if ($this->params['minOdoKm'] == -1 || $row['odoKm'] < $this->params['minOdoKm']) $this->params['minOdoKm'] = $row['odoKm'];
+            if ($this->params['minCurrTime'] == -1 || $row['currTime'] < $this->params['minCurrTime']) $this->params['minCurrTime'] = $row['currTime'];
+            if ($this->params['maxCurrTime'] == -1 || $row['currTime'] > $this->params['maxCurrTime']) $this->params['maxCurrTime'] = $row['currTime'];
+            if ($this->params['latMin'] == -1 || ($row['lat'] != -1 && $row['lat'] < $this->params['latMin'])) $this->params['latMin'] = $row['lat'];
+            if ($this->params['latMax'] == -1 || ($row['lat'] != -1 && $row['lat'] > $this->params['latMax'])) $this->params['latMax'] = $row['lat'];
+            if ($this->params['lonMin'] == -1 || ($row['lon'] != -1 && $row['lon'] < $this->params['lonMin'])) $this->params['lonMin'] = $row['lon'];
+            if ($this->params['lonMax'] == -1 || ($row['lon'] != -1 && $row['lon'] > $this->params['lonMax'])) $this->params['lonMax'] = $row['lon'];
+            if ($this->params['latStartPoint'] == -1 && $row['lat'] != -1) $this->params['latStartPoint'] = $row['lat'];
+            if ($this->params['lonStartPoint'] == -1 && $row['lon'] != -1) $this->params['lonStartPoint'] = $row['lon'];
         }
-        $this->params['graph0x'] = 400;
-        $this->params['graph0y'] = $this->height * 0.66;
-        $this->params['xStep'] = ($this->width - $this->params['graph0x'] - 32) / self::TIME_SCREEN_FRAME;
-        $this->params['yStep'] = ($this->height - 96) / 200;
 
-        $this->params['latCenter'] = ($this->params['latMax'] - $this->params['latMin']) / 2 + $this->params['latMin'];
-        $this->params['lonCenter'] = ($this->params['lonMax'] - $this->params['lonMin']) / 2 + $this->params['lonMin'];
+        $this->width = (getNum("res", "") == "4K") ? 3840 : 1920;
+        $this->height = (getNum("res", "") == "4K") ? 2160 : 1080;
+
+        $this->params['latCenter'] = $this->params['latStartPoint'];
+        $this->params['lonCenter'] = $this->params['lonStartPoint'];
         $this->params['zoom'] = getNum("zoom", 12);
 
-        if ($this->params['keyframes'] == 0) {
-            die("no keyframes");
-        }
-
         $this->image = imagecreatetruecolor($this->width, $this->height);
+        $this->imageMapBk = imagecreatetruecolor($this->width, $this->height);
         $this->prepareColors();
-        if ($this->onlyStaticImage) {
-            switch (getNum("m", 1)) {
-                // case 0: $this->renderSummary();
-                    // break;
-                case 1: $this->renderMap();
-                    break;
-                // case 2: $this->renderChargingGraph();
-                    // break;
-            }
-        } else {
-            $this->renderMap();
-        }
+        $this->renderMap();
     }
 
-    /**
-     * Render map
-     */
-    function renderMap() {
-
-        // Fetch map
-        $this->imageMapBk = imagecreatetruecolor($this->width, $this->height);
-        $this->lastRow = false;
-        $this->params['lonCenter'] = $this->params['lonStartPoint'];
-        $this->params['latCenter'] = $this->params['latStartPoint'];
-
-        // Render graphs
-        if (!$this->onlyStaticImage) {
-            $fp = fopen(str_replace(".json", "", $this->fileName) . '_map.mjpeg', 'w');
+    // PERFORMANCE ADDITION: Helper to get and cache tile resources
+    private function getTileCached($x, $y, $z) {
+        $key = "{$z}_{$x}_{$y}";
+        if (isset($this->tileCache[$key])) return $this->tileCache[$key];
+        
+        $url = str_replace(array('{z}', '{x}', '{y}'), array($z, $x, $y), $this->tileUrl);
+        $tileData = fetchTile($url);
+        if ($tileData) {
+            $this->tileCache[$key] = imagecreatefromstring($tileData);
         } else {
-            $fp = fopen(str_replace(".json", "", $this->fileName) . '_map.jpg', 'w');
+            $this->tileCache[$key] = imagecreate($this->tileSize, $this->tileSize);
+            imagecolorallocate($this->tileCache[$key], 255, 255, 255);
         }
+        return $this->tileCache[$key];
+    }
+
+    function renderMap() {
+        $outputFile = str_replace(".json", "", $this->fileName) . ($this->onlyStaticImage ? '_map.jpg' : '_map.mjpeg');
+        $fp = fopen($outputFile, 'wb');
 
         $eleStep = $this->width / $this->params['keyframes'];
-        $stopFrame = getNum("frame", 0);
-        for ($frame = 0; $frame < $this->params['keyframes']; $frame++) {
 
-            if ($this->onlyStaticImage) {
-                $frame = $this->params['keyframes'] /* / 10 */;
-            }
+        for ($frame = 0; $frame < $this->params['keyframes']; $frame += $this->speedup) {
+            if ($this->onlyStaticImage) $frame = $this->params['keyframes'] - 1;
 
-            // start of render map background
-            $this->centerX = lonToTile($this->params['lonCenter'], $this->params['zoom']);
-            $this->centerY = latToTile($this->params['latCenter'], $this->params['zoom']);
-            $this->offsetX = floor((floor($this->centerX) - $this->centerX) * $this->tileSize);
-            $this->offsetY = floor((floor($this->centerY) - $this->centerY) * $this->tileSize);
-            $startX = floor($this->centerX - ($this->width / $this->tileSize) / 2);
-            $startY = floor($this->centerY - ($this->height / $this->tileSize) / 2);
-            $endX = ceil($this->centerX + ($this->width / $this->tileSize) / 2);
-            $endY = ceil($this->centerY + ($this->height / $this->tileSize) / 2);
-            $this->offsetX = -floor(($this->centerX - floor($this->centerX)) * $this->tileSize);
-            $this->offsetY = -floor(($this->centerY - floor($this->centerY)) * $this->tileSize);
-            $this->offsetX += floor($this->width / 2);
-            $this->offsetY += floor($this->height / 2);
-            $this->offsetX += floor($startX - floor($this->centerX)) * $this->tileSize;
-            $this->offsetY += floor($startY - floor($this->centerY)) * $this->tileSize;
+            // 1. Calculate Tile Viewport
+            $centerX = lonToTile($this->params['lonCenter'], $this->params['zoom']);
+            $centerY = latToTile($this->params['latCenter'], $this->params['zoom']);
+            
+            $startX = floor($centerX - ($this->width / $this->tileSize) / 2);
+            $startY = floor($centerY - ($this->height / $this->tileSize) / 2);
+            $endX = ceil($centerX + ($this->width / $this->tileSize) / 2);
+            $endY = ceil($centerY + ($this->height / $this->tileSize) / 2);
+
+            $offsetX = -floor(($centerX - floor($centerX)) * $this->tileSize) + floor($this->width / 2) + floor($startX - floor($centerX)) * $this->tileSize;
+            $offsetY = -floor(($centerY - floor($centerY)) * $this->tileSize) + floor($this->height / 2) + floor($startY - floor($centerY)) * $this->tileSize;
+
             $lonPerPixel = lonPerPixel($startX, $this->params['zoom']);
             $latPerPixel = latPerPixel($startY, $this->params['zoom']);
+
+            // 2. Optimized Tile Copy (No re-downloads if cached)
             for ($x = $startX; $x <= $endX; $x++) {
                 for ($y = $startY; $y <= $endY; $y++) {
-                    $url = str_replace(array('{z}', '{x}', '{y}'), array($this->params['zoom'], $x, $y), $this->tileUrl);
-					// Used to check the url used to retrieve the map tile
-					// var_dump($url);
-                    $tileData = fetchTile($url);
-                    if ($tileData) {
-                        $tileImage = @imagecreatefromstring($tileData);
-                    } else {
-                        $tileImage = imagecreate($this->tileSize, $this->tileSize);
-                        $color = imagecolorallocate($tileImage, 255, 255, 255);
-                        @imagestring($tileImage, 1, 127, 127, 'err', $color);
-                    }
-                    $destX = ($x - $startX) * $this->tileSize + $this->offsetX;
-                    $destY = ($y - $startY) * $this->tileSize + $this->offsetY;
-                    @imagecopy($this->imageMapBk, $tileImage, $destX, $destY, 0, 0, $this->tileSize, $this->tileSize);
+                    $tileImage = $this->getTileCached($x, $y, $this->params['zoom']);
+                    $destX = ($x - $startX) * $this->tileSize + $offsetX;
+                    $destY = ($y - $startY) * $this->tileSize + $offsetY;
+                    imagecopy($this->imageMapBk, $tileImage, $destX, $destY, 0, 0, $this->tileSize, $this->tileSize);
                 }
-				// sleep(5);
             }
-            // end of render map background
-
-            $this->params['lastOdoKm'] = -1;
-            $this->params['lastOdoKmPosX'] = -1;
 
             imagecopy($this->image, $this->imageMapBk, 0, 0, 0, 0, $this->width, $this->height);
+            
+            // Dark Mode Logic
             if ($this->darkMode) {
                 imagefilter($this->image, IMG_FILTER_NEGATE);
                 $opacity = imagecolorallocatealpha($this->image, 0, 0, 0, 100);
@@ -266,128 +196,74 @@ class EvDashboardOverview {
             }
             imagefilledrectangle($this->image, 0, 0, $this->width, $this->height, $opacity);
 
+            // 3. Draw Tracks (Original Logic)
             $prevRow = false;
-            $cnt = 0;
-            $yStep = $this->height / ($this->params['latMax'] - $this->params['latMin']);
-            $xStep = $this->width / ($this->params['lonMax'] - $this->params['lonMin']);
-
-            $prevRow = false;
-            $row = false;
             $cnt = 0;
             $this->liveData->initData();
             foreach ($this->jsonData as $row) {
-
                 $this->liveData->processRow($row);
-
-                if ($row['odoKm'] <= 0 || $row['instCon'] == -1)
-                    continue;
-                if ($prevRow !== false && ($row['lat'] == -1 || $row['lon'] == -1)) {
-                    $row['lat'] = $prevRow['lat'];
-                    $row['lon'] = $prevRow['lon'];
-                }
-                if ($row['lat'] == -1 || $row['lon'] == -1)
-                    continue;
-
+                if ($row['lat'] == -1 || $row['lon'] == -1) continue;
 
                 if ($prevRow !== false) {
-                    // elevation graph
+                    // Elevation
                     if (!$this->hideInfo) {
                         imagesetthickness($this->image, ($this->darkMode ? 1 : 1));
                         imageline($this->image, $cnt * $eleStep, $this->height - ($prevRow['alt'] / 8), ( $cnt * $eleStep) + 1, $this->height - ($row['alt'] / 8),
                                 ($this->darkMode ? ($row['speedKmh'] > 5 ? $this->white : $this->red) : $this->red));
                     }
-                    //
+                    // Map Track
                     imagesetthickness($this->image, ($this->darkMode ? 2 : 3));
-                    $x0 = floor(($this->width / 2) - $this->tileSize * ( $this->centerX - lonToTile($prevRow['lon'], $this->params['zoom'])));
-                    $y0 = floor(($this->height / 2) - $this->tileSize * ($this->centerY - latToTile($prevRow['lat'], $this->params['zoom'])));
-                    $x = floor(($this->width / 2) - $this->tileSize * ( $this->centerX - lonToTile($row['lon'], $this->params['zoom'])));
-                    $y = floor(($this->height / 2) - $this->tileSize * ($this->centerY - latToTile($row['lat'], $this->params['zoom'])));
-                    $i = abs($cnt - $frame) / 5;
-                    if ($i > 50)
-                        $i = 50;
+                    $x0 = floor(($this->width / 2) - $this->tileSize * ($centerX - lonToTile($prevRow['lon'], $this->params['zoom'])));
+                    $y0 = floor(($this->height / 2) - $this->tileSize * ($centerY - latToTile($prevRow['lat'], $this->params['zoom'])));
+                    $x = floor(($this->width / 2) - $this->tileSize * ($centerX - lonToTile($row['lon'], $this->params['zoom'])));
+                    $y = floor(($this->height / 2) - $this->tileSize * ($centerY - latToTile($row['lat'], $this->params['zoom'])));
                     
-					// Set track color
-					if (strpos($row['CarId'], '_r') !== false) {
-						$trackColor = imagecolorallocatealpha($this->image, 255, 120, 120, 0);
-					} else {
-						$trackColor = imagecolorallocatealpha($this->image, 0, 204, 102, 0);
-					}
-					
+                    $trackColor = (strpos($row['CarId'], '_r') !== false) ? imagecolorallocate($this->image, 255, 120, 120) : imagecolorallocate($this->image, 0, 204, 102);
                     imageline($this->image, $x0, $y0, $x, $y, $trackColor);
                 }
-
-                //
                 $prevRow = $row;
                 $cnt++;
-                if ($cnt > $frame) {
-                    break;
-                }
+                if ($cnt > $frame) break;
+            }
+			
+			// Elevation numerical value at the bottom
+            if ($row !== false && !$this->hideInfo) {
+                // We use $this->red and offset it slightly from the current 'cnt' position
+                imagettftext($this->image, 14, 0, ($cnt * $eleStep) + 10, $this->height - 64, $this->red, $this->font, $row['alt'] . "m");
             }
 
-            if ($row !== false)
-                imagettftext($this->image, 14, 0, ($cnt * $eleStep) + 10, $this->height - 64, $this->black, $this->font, $row['alt'] . "m");
-            $this->liveData->processRow(false);
-
+            // 4. Car Icon and Scrolling Logic
             if ($row !== false) {
-                if ($row['odoKm'] != -1 && $row['instCon'] != -1) {
-                    $x = floor(($this->width / 2) - $this->tileSize * ( $this->centerX - lonToTile($row['lon'], $this->params['zoom'])));
-                    $y = floor(($this->height / 2) - $this->tileSize * ($this->centerY - latToTile($row['lat'], $this->params['zoom'])));
-                    
-					// Load the small PNG image
-					$smallImage = imagecreatefrompng('resources/' . $row['CarId'] . '.png');
-					
-					//Green dot at the start of the track
-					// imagefilledellipse($this->image, $x, $y, 12, 12, $trackColor);
-			
-					// Get the dimensions of the small PNG image
-					$smallImageWidth = imagesx($smallImage);
-					$smallImageHeight = imagesy($smallImage);
-					
-					//Vehicle png image
-					imagecopy($this->image, $smallImage, ($x - ($smallImageWidth / 2)), ($y - ($smallImageHeight / 2)), 0, 0, $smallImageWidth, $smallImageHeight);
-					
-					//Get Live Data
-					$data = $this->liveData->getData();
-					
-                    imagettftext($this->image, 24, 0, ($x-($smallImageWidth/3)), ($y+($smallImageHeight*1.5)), $this->red, $this->font,
-                            $this->hideInfo ?
-                                    printf("") :
-									sprintf("%0.0fkm",$data[LiveData::MODE_DRIVE]['odoKm'])
-                                    
-                    );
-                    // Scroll map
-                    if ($x < 650) {
-                        $step = abs(650 - $x);
-                        $this->params['lonCenter'] -= ($step <= 0 ? 1 : $step) * $lonPerPixel;
-                    }
-                    if ($x > $this->width - 400) {
-                        $step = abs($x - ($this->width - 400));
-                        $this->params['lonCenter'] += ($step <= 0 ? 1 : $step) * $lonPerPixel;
-                    }
-                    if ($y < 400) {
-                        $step = abs(400 - $y);
-                        $this->params['latCenter'] += ($step <= 0 ? 1 : $step) * $latPerPixel;
-                    }
-                    if ($y > $this->height - 400) {
-                        $step = abs($y - ($this->height - 400));
-                        $this->params['latCenter'] -= ($step <= 0 ? 1 : $step) * $latPerPixel;
-                    }
+                $iconKey = $row['CarId'];
+                if (!isset($this->iconCache[$iconKey])) {
+                    $this->iconCache[$iconKey] = imagecreatefrompng('resources/' . $iconKey . '.png');
                 }
+                $smallImage = $this->iconCache[$iconKey];
+                $sw = imagesx($smallImage); $sh = imagesy($smallImage);
+                imagecopy($this->image, $smallImage, ($x - ($sw / 2)), ($y - ($sh / 2)), 0, 0, $sw, $sh);
 
-                if (!$this->hideInfo) {
-                    $opacity = imagecolorallocatealpha($this->image, 0, 0, 0, 72);
-                    $textColor = ($this->darkMode ? $this->white : $this->black);
-                    
-					if (!$this->darkMode)
-                        $opacity = imagecolorallocatealpha($this->image, 255, 255, 255, 48);
-					
-                    imagefilledrectangle($this->image, 0, 0, $this->width, 55, $opacity);
-					
-					$mask = "%6s   %-10s   %-10s   %-10s   %-14s   %-14s   %-16s";
-					
-					$px = 25;
-					$this->drawMapOsd($px, 48, $textColor,
-					sprintf($mask,
+				$this->liveData->processRow(false); 
+				$data = $this->liveData->getData();
+				
+                imagettftext($this->image, 24, 0, ($x - ($sw / 3)), ($y + ($sh * 1.5)), $this->red, $this->font,$this->hideInfo ? "" : sprintf("%0.0fkm", $data[LiveData::MODE_DRIVE]['odoKm']));
+
+                // Scroll boundaries
+                if ($x < 650) $this->params['lonCenter'] -= abs(650 - $x) * $lonPerPixel;
+                if ($x > $this->width - 400) $this->params['lonCenter'] += abs($x - ($this->width - 400)) * $lonPerPixel;
+                if ($y < 400) $this->params['latCenter'] += abs(400 - $y) * $latPerPixel;
+                if ($y > $this->height - 400) $this->params['latCenter'] -= abs($y - ($this->height - 400)) * $latPerPixel;
+            }
+
+            // 5. OSD Overlay
+            if (!$this->hideInfo) {
+    // Background
+    $opacity = imagecolorallocatealpha($this->image, $this->darkMode ? 0 : 255, $this->darkMode ? 0 : 255, $this->darkMode ? 0 : 255, $this->darkMode ? 72 : 48);
+    imagefilledrectangle($this->image, 0, 0, $this->width, 55, $opacity);
+
+    // FIXED MASK: %-8s ensures the label and value always occupy the same space
+    $mask = "%6s   %-10s   %-10s   %-10s   %-14s   %-14s   %-16s";
+    
+    $osdString = sprintf($mask,
 						str_pad(round($row['speedKmh']), 3, "0", STR_PAD_LEFT) . "km/h",
 						"Instant: " . str_pad((int)$row['instCon'], 2, "0", STR_PAD_LEFT) . "." . str_pad((int)(((float)$row['instCon'] - (int)$row['instCon']) * 10), 1, "0", STR_PAD_LEFT) . "%",
 						"Fuel: " . str_pad(round($row['FuelPct']), 3, "0", STR_PAD_LEFT) . "%",
@@ -395,41 +271,25 @@ class EvDashboardOverview {
 						"DrvTime: " . formatHourMin($data[LiveData::MODE_DRIVE]['timeSec']),
 						"IdleTime: " . formatHourMin($data[LiveData::MODE_IDLE]['timeSec']),
 						gmdate("Y-m-d H:i", $row["currTime"])
-						));
-                }
-            }
+						);
 
-            $textColor = ($this->darkMode ? $this->white : $this->black);
-            if ($this->onlyStaticImage) {
-                header('Content-type: image/jpeg');
-            } else {
-                ob_start();
-            }
-            imagejpeg($this->image);
-            if ($this->onlyStaticImage) {
-                die();
-            }
-            $value = ob_get_contents();
-            fwrite($fp, $value);
-            ob_end_clean();
-            if ($this->speedup > 1)
-                $frame += $this->speedup - 1;
+    $this->drawMapOsd(25, 48, ($this->darkMode ? $this->white : $this->black), $osdString);
+}
+
+            // Output frame
+            if (!$this->onlyStaticImage) ob_start();
+            imagejpeg($this->image, null, 85);
+            if ($this->onlyStaticImage) die();
+            fwrite($fp, ob_get_clean());
+
+            if ($frame % 50 == 0) echo "Rendering: Frame $frame / " . $this->params['keyframes'] . "\r";
         }
-
-        // Free up memory
         fclose($fp);
     }
 
-    /**
-     * OSD
-     */
-    private function drawMapOsd($x, $y, $textColor, $left, $right = " ") {
-        $box = imagettfbbox(32, 0, $this->font, $left);
-        $textWidth = abs($box[4] - $box[0]);
-		imagettftext($this->image, 32, 0, $x, $y, $textColor, $this->font, $left);
-        imagettftext($this->image, 32, 0, $x + 16, $y, $textColor, $this->font, $right);
+    private function drawMapOsd($x, $y, $textColor, $left) {
+        imagettftext($this->image, 32, 0, $x, $y, $textColor, $this->font, $left);
     }
-
 }
 
 $overview = new EvDashboardOverview();
