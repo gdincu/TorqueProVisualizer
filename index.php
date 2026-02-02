@@ -391,7 +391,7 @@ class EvDashboardOverview {
 						str_pad(round($row['speedKmh']), 3, "0", STR_PAD_LEFT) . "km/h",
 						"Instant: " . str_pad((int)$row['instCon'], 2, "0", STR_PAD_LEFT) . "." . str_pad((int)(((float)$row['instCon'] - (int)$row['instCon']) * 10), 1, "0", STR_PAD_LEFT) . "%",
 						"Fuel: " . str_pad(round($row['FuelPct']), 3, "0", STR_PAD_LEFT) . "%",
-						"Temp: " . str_pad((int)$row['outC'], 3, "0", STR_PAD_LEFT) . "°C",
+						"Temp: " . sprintf("%03d", (int)$row['outC']) . "°C",
 						"DrvTime: " . formatHourMin($data[LiveData::MODE_DRIVE]['timeSec']),
 						"IdleTime: " . formatHourMin($data[LiveData::MODE_IDLE]['timeSec']),
 						gmdate("Y-m-d H:i", $row["currTime"])
