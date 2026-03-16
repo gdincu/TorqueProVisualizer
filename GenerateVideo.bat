@@ -14,11 +14,11 @@ DEL /S /Q cache\* >nul 2>&1
 )
 
 REM Remove any previous mp4 & mjpeg files
-IF EXIST "E:\repos\evDashVisualizer\*.mp4" (
+IF EXIST ".\*.mp4" (
     DEL /Q *.mp4
 )
 
-IF EXIST "E:\repos\evDashVisualizer\*.mjpeg" (
+IF EXIST ".\*.mjpeg" (
     DEL /Q *.mjpeg
 )
 
@@ -39,7 +39,7 @@ echo.
 
 echo Converting the mjpeg animation to an mp4 file with a 4K resolution[0m...
 
-ffmpeg -hide_banner -loglevel error -i demo_data_map.mjpeg -pix_fmt yuv420p -b:v 8000k -c:v libx264 final_result_4K.mp4
+ffmpeg -hide_banner -loglevel error -i demo_data_map.mjpeg -pix_fmt yuv420p -b:v 8000k -c:v libx264 -vf scale=3840:2160 final_result_4K.mp4
 
 echo [92mMP4 file created[0m
 echo.
